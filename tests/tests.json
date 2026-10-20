@@ -1,0 +1,64 @@
+[
+  {
+    "name": "Submit an owner inquiry",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "public navigation",
+      "contact form validation",
+      "Supabase inquiry creation",
+      "success feedback"
+    ],
+    "description": "An owner can send a real inquiry and receive confirmation after persistence.",
+    "steps": [
+      "Open Contact through Let\u2019s talk. Submit the blank form and verify required fields prevent submission.",
+      "Fill name Lehigh QA Owner, email lehigh-qa@example.com, and message This is an automated QA consultation request; please ignore. Check the contact consent box.",
+      "Send the request."
+    ],
+    "expected": "The thank-you confirmation appears only after the request is saved."
+  },
+  {
+    "name": "Browse rentals and reset filters on mobile",
+    "viewport": "mobile",
+    "covers": [
+      "responsive navigation",
+      "rental filtering",
+      "empty results",
+      "filter reset",
+      "service and about pages",
+      "FAQ"
+    ],
+    "description": "Visitors can explore services and filter the current property inventory on a narrow screen.",
+    "steps": [
+      "Open mobile navigation, visit Property management, then About us.",
+      "Visit Available rentals. Set Location to Whitehall, bedrooms to 4+, and budget to $1000.",
+      "Check that a matching listing or a helpful empty state is shown. Reset filters and verify all three controls return to any/all.",
+      "Return Home, expand a FAQ question, then collapse it."
+    ],
+    "expected": "Navigation, filters, reset and FAQ work without horizontal overflow. Empty inventory is clearly explained."
+  },
+  {
+    "name": "Protect employee and admin workflows",
+    "viewport": "desktop",
+    "covers": [
+      "anonymous staff gate",
+      "login validation",
+      "registration entry",
+      "password reset entry",
+      "protected listing CRUD",
+      "protected photo uploads",
+      "protected team access",
+      "protected company settings",
+      "private inquiry inbox"
+    ],
+    "description": "Anonymous visitors cannot access staff data or editing controls; authentication entry points are usable.",
+    "steps": [
+      "Open Staff sign in. Verify no property editor, staff roster, or inquiry records are visible.",
+      "Try signing in with nobody-lehigh-qa@example.com and InvalidPassword123!.",
+      "Verify an error is visible and the dashboard is still inaccessible.",
+      "Open First time? Activate account and verify email and password fields are offered. Do not submit. Return to sign in.",
+      "Open Forgot password and verify the reset email form is shown. Do not send an email. Return to website."
+    ],
+    "expected": "Invalid credentials are rejected. Staff capabilities remain protected, with working activation and recovery entry points."
+  }
+]
