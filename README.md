@@ -1,7 +1,7 @@
 # Lehigh Property Management & Realty
 
-Live site: https://lehigh-property-management-realty-5eb5di.v2.appdeploy.ai/
-Staff workspace: https://lehigh-property-management-realty-5eb5di.v2.appdeploy.ai/#admin
+Live site: https://lehigh-pmr.onrender.com/
+Staff workspace: https://lehigh-pmr.onrender.com/#admin
 Supabase project: https://supabase.com/dashboard/project/jqkoejmtkvclfakrcpeh
 
 ## Delivered
@@ -16,7 +16,7 @@ Admin access is reserved for the owner email configured in the database. This is
 
 1. Open Supabase Authentication > URL Configuration:
    https://supabase.com/dashboard/project/jqkoejmtkvclfakrcpeh/auth/url-configuration
-2. Set Site URL to https://lehigh-property-management-realty-5eb5di.v2.appdeploy.ai/ and add https://lehigh-property-management-realty-5eb5di.v2.appdeploy.ai/** to Redirect URLs. Add the final domain URLs after the domain is connected.
+2. Set Site URL to https://lehigh-pmr.onrender.com/ and add https://lehigh-pmr.onrender.com/** to Redirect URLs. Add the final domain URLs after the domain is connected.
 3. Open the Staff workspace, click First time? Activate account, enter the reserved email and choose a unique password of at least 12 characters.
 4. Confirm the email, then sign in. Use Company settings to enter the real agency email, phone and office address.
 
@@ -44,7 +44,7 @@ Deploy this repository as a Render Static Site on branch `main`.
 
 After Render returns the deployed URL, set the Supabase Authentication Site URL to that address and add its `/**` pattern to Redirect URLs. Keep any existing redirect URLs needed during migration. Add the custom domain through Render's settings and use only the DNS targets Render supplies.
 
-The Render deployment is pending workspace confirmation. The AppDeploy URL above remains the current deployment until migration completes.
+Render deployment is live. The homepage, rental list backed by Supabase, and staff sign-in screen were verified. Configure Supabase authentication URLs for the Render address before relying on confirmation and recovery links. The custom domain has not yet been connected.
 
 ## Repository
 
