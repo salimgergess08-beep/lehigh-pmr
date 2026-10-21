@@ -1,0 +1,30 @@
+begin;
+insert into auth.users(id,email,email_confirmed_at) values ('b1111111-1111-4111-8111-111111111111','restore-employee@example.invalid',now()),('b2222222-2222-4222-8222-222222222222','restore-admin@example.invalid',now());
+insert into auth.sessions(id,user_id,created_at,updated_at) values('b4444444-4444-4444-8444-444444444444','b1111111-1111-4111-8111-111111111111',now()-interval '1 hour',now());
+insert into public.staff(email,role) values('restore-employee@example.invalid','employee'),('restore-admin@example.invalid','admin');
+insert into public.inquiries(id,name,email,kind,message,consent) values('b3333333-3333-4333-8333-333333333333','Test inquiry','test@example.invalid','rental','Temporary restore test',true);
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"b1111111-1111-4111-8111-111111111111","email":"restore-employee@example.invalid","session_id":"b4444444-4444-4444-8444-444444444444","role":"authenticated"}',true);
+select public.record_staff_session(false);select public.record_staff_session(false);
+do $$ begin
+ if not public.change_inquiry_status('b3333333-3333-4333-8333-333333333333','new','contacted') then raise exception 'Claim failed'; end if;
+ if not exists(select 1 from public.inquiries where id='b3333333-3333-4333-8333-333333333333' and handled_by='restore-employee@example.invalid') then raise exception 'Assignment missing'; end if;
+ if not public.change_inquiry_status('b3333333-3333-4333-8333-333333333333','contacted','closed') then raise exception 'Complete failed'; end if;
+ if exists(select 1 from public.inquiries where id='b3333333-3333-4333-8333-333333333333') then raise exception 'Employee can read logs'; end if;
+ begin perform public.change_inquiry_status('b3333333-3333-4333-8333-333333333333','closed','new');raise exception 'Employee restored log';exception when insufficient_privilege then null;end;
+ begin perform public.employee_activity('restore-employee@example.invalid');raise exception 'Employee read activity';exception when insufficient_privilege then null;end;
+end $$;
+select public.record_staff_session(true);
+select set_config('request.jwt.claims','{"sub":"b2222222-2222-4222-8222-222222222222","email":"restore-admin@example.invalid","role":"authenticated"}',true);
+do $$ declare n integer; begin
+ select count(*) into n from public.employee_activity('restore-employee@example.invalid') where signed_out_at is not null and signed_in_at<now()-interval '30 minutes';
+ if n<>1 then raise exception 'Session tracking failed'; end if;
+ if not exists(select 1 from public.inquiries where id='b3333333-3333-4333-8333-333333333333') then raise exception 'Admin logs hidden'; end if;
+ if not public.change_inquiry_status('b3333333-3333-4333-8333-333333333333','closed','new') then raise exception 'Restore failed'; end if;
+ if not exists(select 1 from public.inquiries where id='b3333333-3333-4333-8333-333333333333' and status='new' and handled_by is null and completed_at is null) then raise exception 'Restore fields failed'; end if;
+ delete from public.inquiries where id='b3333333-3333-4333-8333-333333333333';get diagnostics n=row_count;if n<>0 then raise exception 'Deleted active inquiry';end if;
+end $$;
+reset role;
+do $$ begin if has_function_privilege('anon','public.employee_activity(text,timestamptz)','execute') or has_function_privilege('anon','public.change_inquiry_status(uuid,text,text)','execute') then raise exception 'Anonymous RPC access';end if;end $$;
+rollback;
+select 'PASS: log isolation, admin restore, assignments, session timestamps, session deduplication, admin-only activity, anonymous denial. Test records rolled back.' as result;

@@ -94,3 +94,65 @@ drop policy inquiries_staff_update on public.inquiries;
 create policy inquiries_staff_update on public.inquiries for update to authenticated using ((select private.staff_role()) is not null and status <> 'closed') with check ((select private.staff_role()) is not null);
 grant delete on public.inquiries to authenticated;
 create policy inquiries_admin_clear_logs on public.inquiries for delete to authenticated using ((select private.staff_role())='admin' and status='closed');
+
+-- Admin restore, private session activity, and employee log isolation.
+drop policy inquiries_staff_read on public.inquiries;
+create policy inquiries_staff_read on public.inquiries for select to authenticated using ((select private.staff_role())='admin' or ((select private.staff_role())='employee' and status<>'closed'));
+drop policy inquiries_staff_update on public.inquiries;
+revoke update(status) on public.inquiries from authenticated;
+create function private.change_inquiry_status(p_id uuid,p_expected text,p_status text) returns boolean language plpgsql security definer set search_path='' as $$
+declare r text; n integer;
+begin
+ r:=private.staff_role();
+ if auth.uid() is null or r is null then raise exception 'Staff access required' using errcode='42501'; end if;
+ if p_status is null or p_status not in ('new','contacted','closed') then raise exception 'Invalid status'; end if;
+ if p_expected='closed' and (r<>'admin' or p_status<>'new') then raise exception 'Only administrators can restore completed inquiries' using errcode='42501'; end if;
+ update public.inquiries set status=p_status where id=p_id and status=p_expected;
+ get diagnostics n=row_count; return n=1;
+end $$;
+revoke all on function private.change_inquiry_status(uuid,text,text) from public;
+grant execute on function private.change_inquiry_status(uuid,text,text) to authenticated;
+create function public.change_inquiry_status(p_id uuid,p_expected text,p_status text) returns boolean language sql security invoker set search_path='' as $$select private.change_inquiry_status(p_id,p_expected,p_status)$$;
+revoke all on function public.change_inquiry_status(uuid,text,text) from public;
+grant execute on function public.change_inquiry_status(uuid,text,text) to authenticated;
+
+create table private.staff_sessions(
+ session_id uuid primary key,
+ user_id uuid not null,
+ email text not null,
+ signed_in_at timestamptz not null,
+ first_seen_at timestamptz not null default now(),
+ last_seen_at timestamptz not null default now(),
+ signed_out_at timestamptz
+);
+alter table private.staff_sessions enable row level security;
+revoke all on private.staff_sessions from public,anon,authenticated;
+create index staff_sessions_email_time on private.staff_sessions(email,signed_in_at desc);
+create function private.record_staff_session(p_sign_out boolean default false) returns void language plpgsql security definer set search_path='' as $$
+declare sid uuid; started timestamptz; who text;
+begin
+ if auth.uid() is null or private.staff_role() is null then raise exception 'Staff access required' using errcode='42501'; end if;
+ sid:=(auth.jwt()->>'session_id')::uuid;
+ select s.created_at,lower(u.email) into started,who from auth.sessions s join auth.users u on u.id=s.user_id where s.id=sid and s.user_id=auth.uid();
+ if started is null then raise exception 'Valid session required' using errcode='42501'; end if;
+ insert into private.staff_sessions(session_id,user_id,email,signed_in_at,signed_out_at)
+ values(sid,auth.uid(),who,started,case when p_sign_out then now() end)
+ on conflict(session_id) do update set last_seen_at=now(),signed_out_at=case when p_sign_out then coalesce(private.staff_sessions.signed_out_at,now()) else private.staff_sessions.signed_out_at end;
+end $$;
+revoke all on function private.record_staff_session(boolean) from public;
+grant execute on function private.record_staff_session(boolean) to authenticated;
+create function public.record_staff_session(p_sign_out boolean default false) returns void language sql security invoker set search_path='' as $$select private.record_staff_session(p_sign_out)$$;
+revoke all on function public.record_staff_session(boolean) from public;
+grant execute on function public.record_staff_session(boolean) to authenticated;
+create function private.employee_activity(p_email text,p_before timestamptz default null) returns table(session_id uuid,signed_in_at timestamptz,signed_out_at timestamptz,last_seen_at timestamptz) language plpgsql security definer set search_path='' as $$
+begin
+ if auth.uid() is null or private.staff_role() is distinct from 'admin' then raise exception 'Administrator access required' using errcode='42501'; end if;
+ return query select s.session_id,s.signed_in_at,s.signed_out_at,s.last_seen_at from private.staff_sessions s where s.email=lower(p_email) and (p_before is null or s.signed_in_at<p_before) order by s.signed_in_at desc limit 50;
+end $$;
+revoke all on function private.employee_activity(text,timestamptz) from public;
+grant execute on function private.employee_activity(text,timestamptz) to authenticated;
+create function public.employee_activity(p_email text,p_before timestamptz default null) returns table(session_id uuid,signed_in_at timestamptz,signed_out_at timestamptz,last_seen_at timestamptz) language sql security invoker set search_path='' as $$select * from private.employee_activity(p_email,p_before)$$;
+revoke all on function public.employee_activity(text,timestamptz) from public;
+grant execute on function public.employee_activity(text,timestamptz) to authenticated;
+revoke all on function public.change_inquiry_status(uuid,text,text),public.record_staff_session(boolean),public.employee_activity(text,timestamptz) from anon;
+revoke all on function private.change_inquiry_status(uuid,text,text),private.record_staff_session(boolean),private.employee_activity(text,timestamptz) from anon;

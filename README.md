@@ -32,7 +32,7 @@ Add property, enter details, upload JPG/PNG/WebP files (10 MB each, maximum 20 p
 
 ## Inquiries
 
-Public requests are stored in the staff inbox. They do not trigger an email notification. Active requests appear in separate Rental and General lists (General includes management requests). Unassigned is the default, In progress is amber and records the staff member, and the completion checkbox moves the inquiry to Logs with a green check and completion time. All staff can view Logs; only an administrator can permanently clear completed inquiry records after confirmation. Completed records cannot be changed back to active. Clearing Logs does not delete properties or active inquiries. Existing Closed requests appear as historical logs without an invented completion date. Contact details are collected with consent. Honeypot and field validation are included; a production CAPTCHA/rate-limit service is not configured. The app does not process rental applications, background checks, payments, leases, or maintenance tickets.
+Public requests are stored in the staff inbox. They do not trigger an email notification. Active requests appear in separate Rental and General lists (General includes management requests). Unassigned is the default, In progress is amber and records the staff member, and the completion checkbox moves the inquiry to Logs with a green check and completion time. Only administrators can view Logs, restore a completed inquiry to the inbox as Unassigned, or permanently clear completed inquiry records after confirmation. Employee database reads exclude completed inquiries. Restoring clears the current handler and completion timestamp. Records already permanently cleared cannot be restored. Clearing Logs does not delete properties or active inquiries. Existing Closed requests appear as historical logs without an invented completion date. Contact details are collected with consent. Honeypot and field validation are included; a production CAPTCHA/rate-limit service is not configured. The app does not process rental applications, background checks, payments, leases, or maintenance tickets.
 
 ## Render hosting
 
@@ -76,3 +76,13 @@ The frontend contains only a public Supabase publishable key. Database RLS is th
 - tests/tests.json contains public inquiry, rental navigation/filter and authentication-boundary browser scenarios. The deployment status did not separately return their execution results.
 
 The local source package is functionally equivalent to the deployed app. AppDeploy normalized remote formatting and includes its starter config; the local Vite setup builds independently without Tailwind.
+
+## Employee activity
+
+Administrators can open Team access > View employee to inspect assigned pending inquiries and recorded session activity. Pending means In progress with that employee as the recorded handler; unassigned inquiries remain in the shared team queue. Retained completed counts decrease when logs are cleared or restored.
+
+Session tracking begins when the updated staff workspace is opened. The server validates the current user and session, reads the actual session creation time, and records the website Sign out action. Refreshes do not duplicate sessions. Closing a tab, connection loss, token expiry, or signing out elsewhere does not provide a website sign-out timestamp. A missing sign-out is not an online indicator. Activity times use the viewing administrator's browser timezone. The activity view loads 50 sessions at a time with Load older sessions.
+
+Session records are in a private table with direct client access revoked and RLS default deny. Only the administrator-only activity function can read them. Employees can record only their own validated session; client-provided user IDs and timestamps are never accepted. The security advisor's RLS-without-policy informational notice on this private table is intentional default deny. No prior unrecorded session history is fabricated.
+
+Verification: tests/admin-access.sql validates employee log isolation, admin restore, active inquiry preservation, pending assignment, session timestamp tracking/deduplication, and activity permissions inside a rolled-back transaction.
