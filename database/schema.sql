@@ -156,3 +156,24 @@ revoke all on function public.employee_activity(text,timestamptz) from public;
 grant execute on function public.employee_activity(text,timestamptz) to authenticated;
 revoke all on function public.change_inquiry_status(uuid,text,text),public.record_staff_session(boolean),public.employee_activity(text,timestamptz) from anon;
 revoke all on function private.change_inquiry_status(uuid,text,text),private.record_staff_session(boolean),private.employee_activity(text,timestamptz) from anon;
+
+-- Role-scoped handled property and customer directory.
+create function private.handled_customers(p_offset integer default 0) returns jsonb language plpgsql security definer set search_path='' as $$
+declare r text; who text; result jsonb;
+begin
+ r:=private.staff_role();
+ if auth.uid() is null or r is null then raise exception 'Staff access required' using errcode='42501'; end if;
+ select lower(email) into who from auth.users where id=auth.uid();
+ select coalesce(jsonb_agg(to_jsonb(q)),'[]'::jsonb) into result from (
+ select i.id,i.name,i.email,i.phone,i.kind,i.message,i.status,i.listing_id,i.created_at,i.handled_by,i.completed_at,l.title as property_title,l.address as property_address,l.city as property_city
+ from public.inquiries i left join public.listings l on l.id=i.listing_id
+ where i.status in ('contacted','closed') and i.handled_by is not null and (r='admin' or lower(i.handled_by)=who)
+ order by i.created_at desc,i.id limit 200 offset greatest(coalesce(p_offset,0),0)
+ ) q;
+ return result;
+end $$;
+revoke all on function private.handled_customers(integer) from public,anon;
+grant execute on function private.handled_customers(integer) to authenticated;
+create function public.handled_customers(p_offset integer default 0) returns jsonb language sql security invoker set search_path='' as $$select private.handled_customers(p_offset)$$;
+revoke all on function public.handled_customers(integer) from public,anon;
+grant execute on function public.handled_customers(integer) to authenticated;

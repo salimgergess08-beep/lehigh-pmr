@@ -86,3 +86,11 @@ Session tracking begins when the updated staff workspace is opened. The server v
 Session records are in a private table with direct client access revoked and RLS default deny. Only the administrator-only activity function can read them. Employees can record only their own validated session; client-provided user IDs and timestamps are never accepted. The security advisor's RLS-without-policy informational notice on this private table is intentional default deny. No prior unrecorded session history is fabricated.
 
 Verification: tests/admin-access.sql validates employee log isolation, admin restore, active inquiry preservation, pending assignment, session timestamp tracking/deduplication, and activity permissions inside a rolled-back transaction.
+
+## Handled properties and customers
+
+Both staff roles have Handled properties and Customers tabs. Employees receive only records whose recorded handler matches their authenticated email, including their own completed inquiries; this does not expose the admin Logs tab or other employees' completed customer records. Admins can see all handled records and filter by team member. The shared active inquiry inbox remains unchanged.
+
+Start progress on an inquiry to associate it with a handler. The property tab groups rental inquiries by linked property; the customer tab groups all handled inquiry types by normalized email. Search covers names, email, phone, messages and property details. Status filtering distinguishes In progress and Taken care of. These are inquiry relationships, not leasing or transaction records. Restoring clears the handler and removes the record from these tabs until claimed again. Permanently clearing logs removes their associated customer history. Deleted properties display an unavailable label. Customer phone numbers and names are preserved per inquiry, even when multiple inquiries share an email.
+
+The directory retrieves records in pages of 200 through a staff-only server function. Authorization uses the confirmed Auth user and staff table, never a client-supplied employee identity. Tests in tests/handled-customers.sql verify own-record access, other-employee isolation, admin visibility, and anonymous denial with rollback.
