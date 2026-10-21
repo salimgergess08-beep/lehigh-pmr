@@ -32,7 +32,7 @@ Add property, enter details, upload JPG/PNG/WebP files (10 MB each, maximum 20 p
 
 ## Inquiries
 
-Public requests are stored in the staff inbox. They do not trigger an email notification. Staff can mark requests New, Contacted or Closed. Contact details are collected with consent. Honeypot and field validation are included; a production CAPTCHA/rate-limit service is not configured. The app does not process rental applications, background checks, payments, leases, or maintenance tickets.
+Public requests are stored in the staff inbox. They do not trigger an email notification. Active requests appear in separate Rental and General lists (General includes management requests). Unassigned is the default, In progress is amber and records the staff member, and the completion checkbox moves the inquiry to Logs with a green check and completion time. All staff can view Logs; only an administrator can permanently clear completed inquiry records after confirmation. Completed records cannot be changed back to active. Clearing Logs does not delete properties or active inquiries. Existing Closed requests appear as historical logs without an invented completion date. Contact details are collected with consent. Honeypot and field validation are included; a production CAPTCHA/rate-limit service is not configured. The app does not process rental applications, background checks, payments, leases, or maintenance tickets.
 
 ## Render hosting
 

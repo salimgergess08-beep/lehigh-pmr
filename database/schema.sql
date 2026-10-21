@@ -74,3 +74,23 @@ grant update on public.settings to authenticated;
 insert into public.settings(id) values(true);
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('property-photos','property-photos',true,10485760,array['image/jpeg','image/png','image/webp']);
 create policy photos_staff on storage.objects for all to authenticated using(bucket_id='property-photos' and (select private.staff_role()) is not null) with check(bucket_id='property-photos' and (select private.staff_role()) is not null);
+
+-- Inquiry completion tracking (applied separately to the existing deployment).
+alter table public.inquiries add column handled_by text, add column completed_at timestamptz;
+create function private.track_inquiry_status() returns trigger language plpgsql security invoker set search_path = '' as $$
+begin
+ if new.status is distinct from old.status then
+  if new.status='new' then new.handled_by:=null; new.completed_at:=null;
+  else
+   new.handled_by:=auth.jwt()->>'email';
+   new.completed_at:=case when new.status='closed' then now() else null end;
+  end if;
+ end if;
+ return new;
+end $$;
+revoke all on function private.track_inquiry_status() from public;
+create trigger track_inquiry_status before update of status on public.inquiries for each row execute function private.track_inquiry_status();
+drop policy inquiries_staff_update on public.inquiries;
+create policy inquiries_staff_update on public.inquiries for update to authenticated using ((select private.staff_role()) is not null and status <> 'closed') with check ((select private.staff_role()) is not null);
+grant delete on public.inquiries to authenticated;
+create policy inquiries_admin_clear_logs on public.inquiries for delete to authenticated using ((select private.staff_role())='admin' and status='closed');
