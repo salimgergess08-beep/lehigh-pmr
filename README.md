@@ -28,7 +28,7 @@ Admin > Team access > enter employee email > Grant access. This does not send em
 
 ## Property workflow
 
-Add property, enter details, upload JPG/PNG/WebP files (10 MB each, maximum 20 photos), choose cover, and select Draft, Published or Rented. Published listings appear publicly; Draft and Rented listings are staff-only. Delete requires confirmation. Removing a photo and saving removes its storage object. Deleting a listing cleans up its attached photos. Photos uploaded into an abandoned editor may remain as orphaned storage objects and should be periodically cleaned up. Published bucket URLs are public, including photos attached to drafts; never upload sensitive material.
+Add property, enter details, upload JPG/PNG/WebP files (10 MB each, maximum 20 photos), choose a cover, and save. Employees can only save drafts for admin approval. Admins use Drafts → Review draft → Approve & publish, or select Draft, Published or Rented in the editor. Employee edits return a published listing to draft until approved again. Revision checks prevent stale saves and approvals. Published listings appear publicly; Draft and Rented listings are staff-only. Delete requires confirmation. Removing a photo and saving removes its storage object. Deleting a listing cleans up its attached photos. Photos uploaded into an abandoned editor may remain as orphaned storage objects and should be periodically cleaned up. Published bucket URLs are public, including photos attached to drafts; never upload sensitive material.
 
 ## Inquiries
 
@@ -69,7 +69,7 @@ The frontend contains only a public Supabase publishable key. Database RLS is th
 
 - TypeScript and production Vite build passed.
 - Supabase security advisors: no findings at creation.
-- Transactional SQL tests passed: anonymous cannot view drafts, create listings or read inquiry records; approved employees can create/publish/delete listings; employees cannot grant staff access or change settings; owner can manage staff and settings.
+- Transactional SQL tests passed: anonymous cannot view drafts, create listings or read inquiry records; approved employees can create drafts and delete listings; only admins can publish; employees cannot grant staff access or change settings; owner can manage staff and settings.
 - Test fixtures rolled back; no temporary Auth users or properties were retained.
 - AppDeploy status: ready; frontend and network error arrays empty.
 - Live owner sign-in, email delivery, authenticated browser CRUD and photo-upload journeys still require the owner to activate their account. These were not falsely treated as completed browser tests.
@@ -94,3 +94,5 @@ Both staff roles have Handled properties and Customers tabs. Employees receive o
 Start progress on an inquiry to associate it with a handler. The property tab groups rental inquiries by linked property; the customer tab groups all handled inquiry types by normalized email. Search covers names, email, phone, messages and property details. Status filtering distinguishes In progress and Taken care of. These are inquiry relationships, not leasing or transaction records. Restoring clears the handler and removes the record from these tabs until claimed again. Permanently clearing logs removes their associated customer history. Deleted properties display an unavailable label. Customer phone numbers and names are preserved per inquiry, even when multiple inquiries share an email.
 
 The directory retrieves records in pages of 200 through a staff-only server function. Authorization uses the confirmed Auth user and staff table, never a client-supplied employee identity. Tests in tests/handled-customers.sql verify own-record access, other-employee isolation, admin visibility, and anonymous denial with rollback.
+
+Approval regression coverage: tests/listing-approval.sql verifies draft visibility, employee publish denial, administrator approval, reapproval after employee edits, stale revision rejection, and nonstaff denial. All fixtures roll back.

@@ -1,3 +1,4 @@
+-- Initial setup only. For existing deployments apply only the relevant additive migration.
 create schema if not exists private;
 revoke all on schema private from public;
 grant usage on schema private to authenticated;
@@ -177,3 +178,31 @@ grant execute on function private.handled_customers(integer) to authenticated;
 create function public.handled_customers(p_offset integer default 0) returns jsonb language sql security invoker set search_path='' as $$select private.handled_customers(p_offset)$$;
 revoke all on function public.handled_customers(integer) from public,anon;
 grant execute on function public.handled_customers(integer) to authenticated;
+
+-- Administrator approval for employee listings.
+alter table public.listings add column revision bigint not null default 1;
+create function private.listing_revision() returns trigger language plpgsql security invoker set search_path='' as $$
+begin
+ if tg_op='INSERT' then new.revision:=1;
+ else
+  if new.id is distinct from old.id then raise exception 'Listing ID cannot be changed' using errcode='42501'; end if;
+  new.revision:=old.revision+1;
+ end if;
+ return new;
+end $$;
+revoke all on function private.listing_revision() from public;
+create trigger listing_revision before insert or update on public.listings for each row execute function private.listing_revision();
+drop policy listings_staff on public.listings;
+create policy listings_staff_read on public.listings for select to authenticated using ((select private.staff_role()) is not null);
+create policy listings_staff_insert on public.listings for insert to authenticated with check ((select private.staff_role())='admin' or ((select private.staff_role())='employee' and status='draft'));
+create policy listings_staff_update on public.listings for update to authenticated using ((select private.staff_role()) is not null) with check ((select private.staff_role())='admin' or ((select private.staff_role())='employee' and status='draft'));
+create policy listings_staff_delete on public.listings for delete to authenticated using ((select private.staff_role()) is not null);
+-- Photos cannot be replaced by employees outside the draft approval flow.
+drop policy photos_staff on storage.objects;
+create policy photos_staff_read on storage.objects for select to authenticated using (bucket_id='property-photos' and (select private.staff_role()) is not null);
+create policy photos_staff_insert on storage.objects for insert to authenticated with check (bucket_id='property-photos' and (select private.staff_role()) is not null);
+create policy photos_admin_update on storage.objects for update to authenticated using (bucket_id='property-photos' and (select private.staff_role())='admin') with check (bucket_id='property-photos' and (select private.staff_role())='admin');
+create policy photos_staff_delete on storage.objects for delete to authenticated using (
+ bucket_id='property-photos' and (select private.staff_role()) is not null
+ and not exists (select 1 from public.listings l, unnest(l.images) image_url where split_part(image_url,'/object/public/property-photos/',2)=storage.objects.name)
+);
